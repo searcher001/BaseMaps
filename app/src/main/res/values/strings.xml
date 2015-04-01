@@ -1,0 +1,9 @@
+<resources>
+    <string name="app_name">BaseMaps</string>
+
+    <string name="hello_world">Hello world!</string>
+    <string name="local_water">MapBookWater.tpk</string>
+    <string name="local_sewer">MapBookSewer.tpk</string>
+    <string name="WaterMenu">Water Layer</string>
+    <string name="SewerMenu">Sewer Layer</string>
+</resources>

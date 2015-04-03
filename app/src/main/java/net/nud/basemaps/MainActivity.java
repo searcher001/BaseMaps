@@ -9,6 +9,8 @@ import android.support.v7.app.ActionBarActivity;
 import android.os.Bundle;
 import android.view.Menu;
 import android.view.MenuItem;
+import android.view.View;
+import android.widget.Button;
 
 import com.esri.android.map.LocationDisplayManager;
 import com.esri.android.map.MapView;
@@ -17,6 +19,7 @@ import com.esri.android.map.event.OnStatusChangedListener;
 import com.esri.core.geometry.Envelope;
 import com.esri.core.geometry.GeometryEngine;
 import com.esri.core.geometry.LinearUnit;
+import com.esri.core.geometry.Polygon;
 import com.esri.core.geometry.SpatialReference;
 import com.esri.core.geometry.Unit;
 
@@ -32,30 +35,41 @@ public class MainActivity extends ActionBarActivity {
     private MapView mMapView;
     private ArcGISLocalTiledLayer localWaterLayer;
     private ArcGISLocalTiledLayer localSewerLayer;
+    private ArcGISLocalTiledLayer localOrthoLayer;
     private LocationDisplayManager lDisplayManager;
+
+    private static String LASTSTATE;
+    private static Boolean ISWATERLAYER;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
 
+        // create the mapview
+        mMapView = (MapView) findViewById(R.id.map);
+
         // Create the path to the local TPK
         String waterPath = Environment.getExternalStorageDirectory() + File.separator + this.getResources().getString(R.string.local_water);
         String sewerPath = Environment.getExternalStorageDirectory() + File.separator + this.getResources().getString(R.string.local_sewer);
-
-        // create the mapview
-        mMapView = (MapView) findViewById(R.id.map);
+        String orthoPath = Environment.getExternalStorageDirectory() + File.separator + this.getResources().getString(R.string.ortho_photo);
 
         // create the local tpk
         localWaterLayer = new ArcGISLocalTiledLayer(waterPath);
         localSewerLayer = new ArcGISLocalTiledLayer(sewerPath);
+        localOrthoLayer = new ArcGISLocalTiledLayer(orthoPath);
 
-        // set sewer visibility to default false
+        // set non water layer visibility to default false
         localSewerLayer.setVisible(false);
+        localOrthoLayer.setVisible(false);
+
+        // set opacity of ortho
+        localOrthoLayer.setOpacity(0.5f);
 
         // add the map layers
         mMapView.addLayer(localWaterLayer);
         mMapView.addLayer(localSewerLayer);
+        mMapView.addLayer(localOrthoLayer);
 
         // enable panning over date line
         mMapView.enableWrapAround(true);
@@ -66,76 +80,104 @@ public class MainActivity extends ActionBarActivity {
         // Set background to white
         mMapView.setMapBackground(Color.WHITE, 0, 0, 0);
 
+        // Recreate the view if device was rotated
+        if (LASTSTATE != null) {
+            mMapView.restoreState(LASTSTATE);
+            if (ISWATERLAYER) {
+                localSewerLayer.setVisible(false);
+                localWaterLayer.setVisible(true);
+            } else {
+                localSewerLayer.setVisible(true);
+                localWaterLayer.setVisible(false);
+            }
+        } else {
 
+            mMapView.setOnStatusChangedListener(new OnStatusChangedListener() {
 
-        mMapView.setOnStatusChangedListener(new OnStatusChangedListener() {
+                @Override
+                public void onStatusChanged(Object source, STATUS status) {
+                    if (source == mMapView && status == STATUS.INITIALIZED) {
+                        lDisplayManager = mMapView.getLocationDisplayManager();
+                        lDisplayManager.setAutoPanMode(LocationDisplayManager.AutoPanMode.LOCATION);
+                        lDisplayManager.setLocationListener(new LocationListener() {
 
-            @Override
-            public void onStatusChanged(Object source, STATUS status) {
-                if (source ==mMapView && status == STATUS.INITIALIZED) {
-                    lDisplayManager = mMapView.getLocationDisplayManager();
-                    lDisplayManager.setAutoPanMode(LocationDisplayManager.AutoPanMode.LOCATION);
-                    lDisplayManager.setLocationListener(new LocationListener() {
+                            boolean locationChanged = false;
 
-                        boolean locationChanged = false;
-
-                        @Override
-                        public void onLocationChanged(Location location) {
-                            if (!locationChanged) {
-                                locationChanged = true;
-                                double locy = location.getLatitude();
-                                double locx = location.getLongitude();
-                                com.esri.core.geometry.Point wgspoint = new com.esri.core.geometry.Point(locx, locy);
-                                com.esri.core.geometry.Point mapPoint = (com.esri.core.geometry.Point) GeometryEngine
-                                        .project(wgspoint,
-                                                SpatialReference.create(4326),
-                                                mMapView.getSpatialReference()
-                                                );
-                                Unit mapUnit = mMapView.getSpatialReference().getUnit();
-                                double zoomWidth = Unit.convertUnits(
-                                        1000,
-                                        Unit.create(LinearUnit.Code.FOOT_US),
-                                        mapUnit);
-                                Envelope zoomExtent = new Envelope(mapPoint,
-                                        zoomWidth, zoomWidth);
-                                mMapView.setExtent(zoomExtent);
+                            @Override
+                            public void onLocationChanged(Location location) {
+                                if (!locationChanged) {
+                                    locationChanged = true;
+                                    double locy = location.getLatitude();
+                                    double locx = location.getLongitude();
+                                    com.esri.core.geometry.Point wgspoint = new com.esri.core.geometry.Point(locx, locy);
+                                    com.esri.core.geometry.Point mapPoint = (com.esri.core.geometry.Point) GeometryEngine
+                                            .project(wgspoint,
+                                                    SpatialReference.create(4326),
+                                                    mMapView.getSpatialReference()
+                                            );
+                                    Unit mapUnit = mMapView.getSpatialReference().getUnit();
+                                    double zoomWidth = Unit.convertUnits(
+                                            1000,
+                                            Unit.create(LinearUnit.Code.FOOT_US),
+                                            mapUnit);
+                                    Envelope zoomExtent = new Envelope(mapPoint,
+                                            zoomWidth, zoomWidth);
+                                    mMapView.setExtent(zoomExtent);
+                                }
                             }
-                        }
 
-                        @Override
-                        public void onStatusChanged(String provider, int status, Bundle extras) {
+                            @Override
+                            public void onStatusChanged(String provider, int status, Bundle extras) {
 
-                        }
+                            }
 
-                        @Override
-                        public void onProviderEnabled(String provider) {
+                            @Override
+                            public void onProviderEnabled(String provider) {
 
-                        }
+                            }
 
-                        @Override
-                        public void onProviderDisabled(String provider) {
+                            @Override
+                            public void onProviderDisabled(String provider) {
 
-                        }
-                    });
-                    lDisplayManager.start();
+                            }
+                        });
+                        lDisplayManager.start();
+                    }
+                }
+            });
+        }
+
+        // hook into ortho Toggle button
+        final Button orthoButton = (Button) findViewById(R.id.ortho_button);
+        orthoButton.setOnClickListener( new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                if (localOrthoLayer.isVisible()){
+                    localOrthoLayer.setVisible(false);
+                } else {
+                    localOrthoLayer.setVisible(true);
                 }
             }
         });
 
-
     }
-
 
     @Override
     public boolean onCreateOptionsMenu(Menu menu) {
         // Inflate the menu; this adds items to the action bar if it is present.
         getMenuInflater().inflate(R.menu.menu_main, menu);
 
-        mSewerMenuItem = menu.getItem(1);
         mWaterMenuItem = menu.getItem(0);
-
-        mWaterMenuItem.setChecked(true);
-
+        mSewerMenuItem = menu.getItem(1);
+        if (ISWATERLAYER != null) {
+            if (ISWATERLAYER) {
+                mWaterMenuItem.setChecked(true);
+            } else {
+                mSewerMenuItem.setChecked(true);
+            }
+        } else {
+            mWaterMenuItem.setChecked(true);
+        }
         return true;
     }
 
@@ -160,4 +202,17 @@ public class MainActivity extends ActionBarActivity {
                 return super.onOptionsItemSelected(item);
         }
     }
+
+    @Override
+    public void onSaveInstanceState(Bundle savedInstanceState) {
+
+        //Save Extent
+        LASTSTATE = mMapView.retainState();
+        ISWATERLAYER = localWaterLayer.isVisible();
+
+
+        // Call superclass
+        super.onSaveInstanceState(savedInstanceState);
+    }
+
 }

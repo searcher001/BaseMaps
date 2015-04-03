@@ -6,4 +6,6 @@
     <string name="local_sewer">MapBookSewer.tpk</string>
     <string name="WaterMenu">Water Layer</string>
     <string name="SewerMenu">Sewer Layer</string>
+    <string name="ortho_photo">OrthoPhoto.tpk</string>
+    <string name="ortho_button">Toggle</string>
 </resources>

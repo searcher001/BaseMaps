@@ -1,7 +1,6 @@
 package net.nud.basemaps;
 
 import android.graphics.Color;
-import android.graphics.Point;
 import android.location.Location;
 import android.location.LocationListener;
 import android.os.Environment;
@@ -19,7 +18,6 @@ import com.esri.android.map.event.OnStatusChangedListener;
 import com.esri.core.geometry.Envelope;
 import com.esri.core.geometry.GeometryEngine;
 import com.esri.core.geometry.LinearUnit;
-import com.esri.core.geometry.Polygon;
 import com.esri.core.geometry.SpatialReference;
 import com.esri.core.geometry.Unit;
 
@@ -152,10 +150,13 @@ public class MainActivity extends ActionBarActivity {
         orthoButton.setOnClickListener( new View.OnClickListener() {
             @Override
             public void onClick(View v) {
+                Button orthoButton = (Button)findViewById(R.id.ortho_button);
                 if (localOrthoLayer.isVisible()){
                     localOrthoLayer.setVisible(false);
+                    orthoButton.setText(R.string.button_ortho_turn_on);
                 } else {
                     localOrthoLayer.setVisible(true);
+                    orthoButton.setText(R.string.button_ortho_turn_off);
                 }
             }
         });

@@ -14,9 +14,11 @@
         android:id="@+id/ortho_button"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:text="@string/ortho_button"
+        android:text="@string/button_ortho_turn_on"
         android:layout_alignParentBottom="true"
         android:layout_alignParentLeft="true"
+        android:background="@drawable/ortho_button_background"
+        android:layout_margin="10dp"
         />
 
 </RelativeLayout>

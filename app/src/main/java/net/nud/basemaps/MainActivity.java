@@ -78,7 +78,7 @@ public class MainActivity extends ActionBarActivity {
         mMapView.enableWrapAround(true);
 
         // set Esri Logo
-        mMapView.setEsriLogoVisible(false);
+        mMapView.setEsriLogoVisible(true);
 
         // Set background to white
         mMapView.setMapBackground(Color.WHITE, 0, 0, 0);

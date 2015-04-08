@@ -36,8 +36,9 @@ public class MainActivity extends ActionBarActivity {
     private ArcGISLocalTiledLayer localOrthoLayer;
     private LocationDisplayManager lDisplayManager;
 
-    private static String LASTSTATE;
+    private static String LASTSTATE;        // also contains the location manager
     private static Boolean ISWATERLAYER;
+    private static Boolean ISORTHOON;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -86,6 +87,10 @@ public class MainActivity extends ActionBarActivity {
         // Recreate the view if device was rotated
         if (LASTSTATE != null) {
             mMapView.restoreState(LASTSTATE);
+
+            // set the ortho layer visibility
+            localOrthoLayer.setVisible(ISORTHOON);
+
             if (ISWATERLAYER) {
                 localSewerLayer.setVisible(false);
                 localWaterLayer.setVisible(true);
@@ -193,6 +198,7 @@ public class MainActivity extends ActionBarActivity {
         // automatically handle clicks on the Home/Up button, so long
         // as you specify a parent activity in AndroidManifest.xml.
 
+
         switch (item.getItemId()) {
             case R.id.Water_Layer:
                 localWaterLayer.setVisible(true);
@@ -215,6 +221,9 @@ public class MainActivity extends ActionBarActivity {
         //Save Extent
         LASTSTATE = mMapView.retainState();
         ISWATERLAYER = localWaterLayer.isVisible();
+
+        // save ortho layer visibility
+        ISORTHOON = localOrthoLayer.isVisible();
 
 
         // Call superclass

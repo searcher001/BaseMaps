@@ -7,6 +7,8 @@
     <string name="WaterMenu">Water Layer</string>
     <string name="SewerMenu">Sewer Layer</string>
     <string name="ortho_photo">OrthoPhoto.tpk</string>
+    <string name="local_data">NUDLocalData</string>
+    <string name="common_files">Common</string>
 
     <string name="button_ortho_turn_on">Ortho</string>
     <string name="button_ortho_turn_off">Road</string>

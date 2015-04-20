@@ -53,10 +53,13 @@ public class MainActivity extends ActionBarActivity {
         // create the mapview
         mMapView = (MapView) findViewById(R.id.map);
 
+        // local common directory
+        String localDataDir = this.getResources().getString(R.string.local_data) + File.separator + this.getResources().getString(R.string.common_files);
+
         // Create the path to the local TPK
-        String waterPath = Environment.getExternalStorageDirectory() + File.separator + this.getResources().getString(R.string.local_water);
-        String sewerPath = Environment.getExternalStorageDirectory() + File.separator + this.getResources().getString(R.string.local_sewer);
-        String orthoPath = Environment.getExternalStorageDirectory() + File.separator + this.getResources().getString(R.string.ortho_photo);
+        String waterPath = Environment.getExternalStorageDirectory() + File.separator + localDataDir + File.separator + this.getResources().getString(R.string.local_water);
+        String sewerPath = Environment.getExternalStorageDirectory() + File.separator + localDataDir + File.separator + this.getResources().getString(R.string.local_sewer);
+        String orthoPath = Environment.getExternalStorageDirectory() + File.separator + localDataDir + File.separator + this.getResources().getString(R.string.ortho_photo);
 
         // create the local tpk
         localWaterLayer = new ArcGISLocalTiledLayer(waterPath);

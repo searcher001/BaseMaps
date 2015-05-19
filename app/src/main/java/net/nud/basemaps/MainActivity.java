@@ -6,6 +6,7 @@ import android.location.LocationListener;
 import android.os.Environment;
 import android.support.v7.app.ActionBarActivity;
 import android.os.Bundle;
+import android.util.Log;
 import android.view.Menu;
 import android.view.MenuItem;
 import android.view.View;
@@ -43,6 +44,12 @@ public class MainActivity extends ActionBarActivity {
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
+
+        if (savedInstanceState != null) {
+            Log.i("util", "water layer is: " + savedInstanceState.getBoolean("ISWATERLAYER"));
+            Log.i("tuil", "Actual water layer is: " + ISWATERLAYER);
+        }
+
 
         // set esri client token
         ApplicationToken appToken = new ApplicationToken();
@@ -221,6 +228,9 @@ public class MainActivity extends ActionBarActivity {
     @Override
     public void onSaveInstanceState(Bundle savedInstanceState) {
 
+        // Call superclass
+        super.onSaveInstanceState(savedInstanceState);
+
         //Save Extent
         LASTSTATE = mMapView.retainState();
         ISWATERLAYER = localWaterLayer.isVisible();
@@ -229,8 +239,6 @@ public class MainActivity extends ActionBarActivity {
         ISORTHOON = localOrthoLayer.isVisible();
 
 
-        // Call superclass
-        super.onSaveInstanceState(savedInstanceState);
     }
 
 }

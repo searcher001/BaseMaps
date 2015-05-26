@@ -1,9 +1,11 @@
 package net.nud.basemaps;
 
+import android.content.Intent;
 import android.graphics.Color;
 import android.location.Location;
 import android.location.LocationListener;
 import android.os.Environment;
+import android.provider.Settings;
 import android.support.v7.app.ActionBarActivity;
 import android.os.Bundle;
 import android.util.Log;
@@ -45,18 +47,11 @@ public class MainActivity extends ActionBarActivity {
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
 
-        if (savedInstanceState != null) {
-            Log.i("util", "water layer is: " + savedInstanceState.getBoolean("ISWATERLAYER"));
-            Log.i("tuil", "Actual water layer is: " + ISWATERLAYER);
-        }
-
+        setContentView(R.layout.activity_main);
 
         // set esri client token
         ApplicationToken appToken = new ApplicationToken();
         appToken.setAppToken();
-
-        setContentView(R.layout.activity_main);
-
         // create the mapview
         mMapView = (MapView) findViewById(R.id.map);
 
@@ -101,6 +96,8 @@ public class MainActivity extends ActionBarActivity {
             // set the ortho layer visibility
             localOrthoLayer.setVisible(ISORTHOON);
 
+            lDisplayManager = mMapView.getLocationDisplayManager();
+
             if (ISWATERLAYER) {
                 localSewerLayer.setVisible(false);
                 localWaterLayer.setVisible(true);
@@ -109,6 +106,8 @@ public class MainActivity extends ActionBarActivity {
                 localWaterLayer.setVisible(false);
             }
         } else {
+
+            mMapView.setOnStatusChangedListener(null);
 
             mMapView.setOnStatusChangedListener(new OnStatusChangedListener() {
 
@@ -119,28 +118,14 @@ public class MainActivity extends ActionBarActivity {
                         lDisplayManager.setAutoPanMode(LocationDisplayManager.AutoPanMode.LOCATION);
                         lDisplayManager.setLocationListener(new LocationListener() {
 
+
                             boolean locationChanged = false;
 
                             @Override
                             public void onLocationChanged(Location location) {
                                 if (!locationChanged) {
                                     locationChanged = true;
-                                    double locy = location.getLatitude();
-                                    double locx = location.getLongitude();
-                                    com.esri.core.geometry.Point wgspoint = new com.esri.core.geometry.Point(locx, locy);
-                                    com.esri.core.geometry.Point mapPoint = (com.esri.core.geometry.Point) GeometryEngine
-                                            .project(wgspoint,
-                                                    SpatialReference.create(4326),
-                                                    mMapView.getSpatialReference()
-                                            );
-                                    Unit mapUnit = mMapView.getSpatialReference().getUnit();
-                                    double zoomWidth = Unit.convertUnits(
-                                            1000,
-                                            Unit.create(LinearUnit.Code.FOOT_US),
-                                            mapUnit);
-                                    Envelope zoomExtent = new Envelope(mapPoint,
-                                            zoomWidth, zoomWidth);
-                                    mMapView.setExtent(zoomExtent);
+                                    mMapView.setExtent(zoomEnvelope());
                                 }
                             }
 
@@ -180,7 +165,6 @@ public class MainActivity extends ActionBarActivity {
                 }
             }
         });
-
     }
 
     @Override
@@ -188,8 +172,8 @@ public class MainActivity extends ActionBarActivity {
         // Inflate the menu; this adds items to the action bar if it is present.
         getMenuInflater().inflate(R.menu.menu_main, menu);
 
-        mWaterMenuItem = menu.getItem(0);
-        mSewerMenuItem = menu.getItem(1);
+        mWaterMenuItem = menu.getItem(1);
+        mSewerMenuItem = menu.getItem(2);
         if (ISWATERLAYER != null) {
             if (ISWATERLAYER) {
                 mWaterMenuItem.setChecked(true);
@@ -220,6 +204,9 @@ public class MainActivity extends ActionBarActivity {
                 localWaterLayer.setVisible(false);
                 mSewerMenuItem.setChecked(true);
                 return true;
+            case R.id.gps_btn:
+                toggleGPS();
+                return true;
             default:
                 return super.onOptionsItemSelected(item);
         }
@@ -238,7 +225,55 @@ public class MainActivity extends ActionBarActivity {
         // save ortho layer visibility
         ISORTHOON = localOrthoLayer.isVisible();
 
+    }
+
+    @Override
+    public void onPause() {
+        super.onPause();
+        mMapView.pause();
 
     }
 
+    @Override
+    public void onResume() {
+        super.onResume();
+        mMapView.unpause();
+    }
+
+    private void toggleGPS() {
+        if (lDisplayManager == null) {
+            Log.i("GPS", "Display manager is not init");
+            return;
+        }
+        if (lDisplayManager.isStarted()) {
+            lDisplayManager.stop();
+        } else {
+            lDisplayManager.start();
+            if (lDisplayManager.isStarted()) {
+                mMapView.setExtent(zoomEnvelope());
+            }
+        }
+    }
+
+    private Envelope zoomEnvelope() {
+        if (mMapView.getLocationDisplayManager().getLocation() != null) {
+            double locy = mMapView.getLocationDisplayManager().getLocation().getLatitude();
+            double locx = mMapView.getLocationDisplayManager().getLocation().getLongitude();
+            com.esri.core.geometry.Point wgspoint = new com.esri.core.geometry.Point(locx, locy);
+            com.esri.core.geometry.Point mapPoint = (com.esri.core.geometry.Point) GeometryEngine
+                    .project(wgspoint,
+                            SpatialReference.create(4326),
+                            mMapView.getSpatialReference()
+                    );
+            Unit mapUnit = mMapView.getSpatialReference().getUnit();
+            double zoomWidth = Unit.convertUnits(
+                    1000,
+                    Unit.create(LinearUnit.Code.FOOT_US),
+                    mapUnit);
+
+            return new Envelope(mapPoint, zoomWidth, zoomWidth);
+        }
+
+        return null;
+    }
 }

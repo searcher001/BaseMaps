@@ -1,11 +1,9 @@
 package net.nud.basemaps;
 
-import android.content.Intent;
 import android.graphics.Color;
 import android.location.Location;
 import android.location.LocationListener;
 import android.os.Environment;
-import android.provider.Settings;
 import android.support.v7.app.ActionBarActivity;
 import android.os.Bundle;
 import android.util.Log;
@@ -46,6 +44,11 @@ public class MainActivity extends ActionBarActivity {
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
+
+        // On startup, check if apk exists in download and delete it
+        checkVersion();
+
+        Log.i("version", "Version number is: " + BuildConfig.VERSION_CODE );
 
         setContentView(R.layout.activity_main);
 
@@ -242,7 +245,6 @@ public class MainActivity extends ActionBarActivity {
 
     private void toggleGPS() {
         if (lDisplayManager == null) {
-            Log.i("GPS", "Display manager is not init");
             return;
         }
         if (lDisplayManager.isStarted()) {
@@ -275,5 +277,29 @@ public class MainActivity extends ActionBarActivity {
         }
 
         return null;
+    }
+
+    private void checkVersion() {
+
+        // TODO: Eventually hit a webpage that serves up version numbers
+        // hitWebPage();
+
+        // check string against version Name and Version Code
+        // if string.compareTo(BuildConfig.VERSIONCODE.toString() + "." + BuildConfig.VERSIONNAME.toString()) > 0
+
+        //      delete package from downloads folder
+                File app = new File(Environment.getExternalStorageDirectory().getAbsolutePath() + "/Download/basemap.apk" );
+
+                if (app.exists()) {
+                    app.delete();
+                    Log.i("Delete", "Deleting basemap.apk");
+                }
+        //      if Wifi connected
+        //          Make Toast with URL to link to download
+
+        //      else
+        //          Make Toast to connect wifi to HQ for download
+
+
     }
 }

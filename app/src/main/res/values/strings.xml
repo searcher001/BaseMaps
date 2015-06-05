@@ -17,4 +17,15 @@
     <string name="button_ortho_turn_on">Ortho</string>
     <string name="button_ortho_turn_off">Road</string>
 
+    <string name="nud_wifi">"NUD"</string>
+    <string name="nud_wifi_5g">"NUD5G"</string>
+
+    <string name="update_text">There is an update available to download.</string>
+    <string name="update_text2">Would you like to update now?</string>
+
+    <string name="version_file">http://vswhweb/AndroidApps/basemap.ver</string>
+    <string name="basemap_server">http://vswhweb/AndroidApps/basemap.apk</string>
+    <string name="update">Update</string>
+    <string name="cancel">Cancel</string>
+    <string name="basemap_local">basemap.apk</string>
 </resources>

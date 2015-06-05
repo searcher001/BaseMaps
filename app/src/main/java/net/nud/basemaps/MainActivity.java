@@ -1,9 +1,13 @@
 package net.nud.basemaps;
 
+import android.app.Dialog;
 import android.graphics.Color;
 import android.location.Location;
 import android.location.LocationListener;
+import android.net.wifi.WifiInfo;
+import android.net.wifi.WifiManager;
 import android.os.Environment;
+import android.support.v4.app.DialogFragment;
 import android.support.v7.app.ActionBarActivity;
 import android.os.Bundle;
 import android.util.Log;
@@ -11,6 +15,7 @@ import android.view.Menu;
 import android.view.MenuItem;
 import android.view.View;
 import android.widget.Button;
+import android.widget.EditText;
 
 import com.esri.android.map.LocationDisplayManager;
 import com.esri.android.map.MapView;
@@ -25,7 +30,7 @@ import com.esri.core.geometry.Unit;
 import java.io.File;
 
 
-public class MainActivity extends ActionBarActivity {
+public class MainActivity extends ActionBarActivity implements OnTaskCompleted, UpdateDialogFragment.UpdateDialogListener {
 
     // menu items
     private MenuItem mSewerMenuItem;
@@ -44,9 +49,6 @@ public class MainActivity extends ActionBarActivity {
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
-
-        // On startup, check if apk exists in download and delete it
-        checkVersion();
 
         Log.i("version", "Version number is: " + BuildConfig.VERSION_CODE );
 
@@ -241,6 +243,9 @@ public class MainActivity extends ActionBarActivity {
     public void onResume() {
         super.onResume();
         mMapView.unpause();
+
+        // On startup, check version on server
+        checkVersion();
     }
 
     private void toggleGPS() {
@@ -279,27 +284,85 @@ public class MainActivity extends ActionBarActivity {
         return null;
     }
 
+    // check connection to NUD Wifi, then check version
     private void checkVersion() {
 
-        // TODO: Eventually hit a webpage that serves up version numbers
-        // hitWebPage();
+        // Check if connected to NUD wifi
+        WifiManager wifiManager = (WifiManager) getSystemService(WIFI_SERVICE);
+        WifiInfo wifiInfo = wifiManager.getConnectionInfo();
 
-        // check string against version Name and Version Code
-        // if string.compareTo(BuildConfig.VERSIONCODE.toString() + "." + BuildConfig.VERSIONNAME.toString()) > 0
+        Boolean testWifi = wifiInfo.getSSID().compareTo("\"" + getString(R.string.nud_wifi) +"\"") == 0;
+        Boolean testWifi5G = wifiInfo.getSSID().compareTo("\"" + getString(R.string.nud_wifi_5g) +"\"") == 0;
 
-        //      delete package from downloads folder
-                File app = new File(Environment.getExternalStorageDirectory().getAbsolutePath() + "/Download/basemap.apk" );
+        // if connected to NUD Wifi, check server version
+        if (testWifi || testWifi5G)
+        {
+            CheckVersionTask checkVersion = new CheckVersionTask(this);
+            checkVersion.execute(getResources().getString(R.string.version_file));
 
-                if (app.exists()) {
-                    app.delete();
-                    Log.i("Delete", "Deleting basemap.apk");
-                }
-        //      if Wifi connected
-        //          Make Toast with URL to link to download
-
-        //      else
-        //          Make Toast to connect wifi to HQ for download
-
-
+        }
     }
+
+    public void onTaskCompleted(String args) {
+
+        String localVersion = (Integer.toString(BuildConfig.VERSION_CODE) + "." + BuildConfig.VERSION_NAME);
+        Integer integerComparison = versionCompare(args, localVersion);
+
+        // if the versions don't match, prompt for dialog update
+        if ( integerComparison != 0) {
+
+            android.support.v4.app.FragmentTransaction transaction = getSupportFragmentManager().beginTransaction();
+            android.support.v4.app.Fragment prev = getSupportFragmentManager().findFragmentByTag("UpdateDialogFragment");
+
+            if (prev != null) {
+                DialogFragment df = (DialogFragment) prev;
+                df.dismiss();
+                transaction.remove(prev);
+            }
+
+            transaction.addToBackStack(null);
+
+            DialogFragment dialog = new UpdateDialogFragment();
+            dialog.show(getSupportFragmentManager(), "UpdateDialogFragment");
+        }
+    }
+
+    @Override
+    public void onDialogPositiveClick(DialogFragment dialog) {
+
+        UpdateApp update = new UpdateApp();
+        update.setContext(getApplicationContext());
+        update.execute(getResources().getString(R.string.basemap_server));
+    }
+
+    @Override
+    public void onDialogNegativeClick(DialogFragment dialog) {
+        Dialog dialogView = dialog.getDialog();
+        dialogView.cancel();
+    }
+
+    private Integer versionCompare(String str1, String str2)
+    {
+        String[] vals1 = str1.split("\\.");
+        String[] vals2 = str2.split("\\.");
+        int i = 0;
+        // set index to first non-equal ordinal or length of shortest version string
+        while (i < vals1.length && i < vals2.length && vals1[i].equals(vals2[i]))
+        {
+            i++;
+        }
+        // compare first non-equal ordinal number
+        if (i < vals1.length && i < vals2.length)
+        {
+            int diff = Integer.valueOf(vals1[i]).compareTo(Integer.valueOf(vals2[i]));
+            return Integer.signum(diff);
+        }
+        // the strings are equal or one string is a substring of the other
+        // e.g. "1.2.3" = "1.2.3" or "1.2.3" < "1.2.3.4"
+        else
+        {
+            return Integer.signum(vals1.length - vals2.length);
+        }
+    }
+
 }

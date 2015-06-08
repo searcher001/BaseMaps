@@ -1,0 +1,22 @@
+<menu xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    xmlns:tools="http://schemas.android.com/tools" tools:context=".MainActivity">
+    <item
+        android:id="@+id/gps_btn"
+        android:icon="@drawable/ic_gps_btn"
+        android:title="@string/GPSMenu"
+        app:showAsAction="always"
+        />
+    <group android:checkableBehavior="single">
+    <item
+        android:id="@+id/Water_Layer"
+        app:showAsAction="never"
+        android:title="@string/WaterMenu"
+        />
+        <item
+            android:id="@+id/Sewer_layer"
+            app:showAsAction="never"
+            android:title="@string/SewerMenu"
+            />
+    </group>
+</menu>

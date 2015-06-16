@@ -6,3 +6,4 @@
 /build
 /release.keystore
 /release.properties
+/app/src/main/java/net/nud/basemaps/ApplicationToken.java

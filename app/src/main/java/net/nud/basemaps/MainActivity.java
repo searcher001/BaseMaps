@@ -49,9 +49,6 @@ public class MainActivity extends ActionBarActivity implements OnTaskCompleted, 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
-
-        Log.i("version", "Version number is: " + BuildConfig.VERSION_CODE );
-
         setContentView(R.layout.activity_main);
 
         // set esri client token

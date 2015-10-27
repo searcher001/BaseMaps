@@ -54,6 +54,149 @@ public class MainActivity extends ActionBarActivity implements OnTaskCompleted, 
         // set esri client token
         ApplicationToken appToken = new ApplicationToken();
         appToken.setAppToken();
+
+        // Create the map view
+        createMapView();
+
+
+        // hook into ortho Toggle button
+        final Button orthoButton = (Button) findViewById(R.id.ortho_button);
+        orthoButton.setOnClickListener( new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                Button orthoButton = (Button)findViewById(R.id.ortho_button);
+                if (localOrthoLayer.isVisible()){
+                    localOrthoLayer.setVisible(false);
+                    orthoButton.setText(R.string.button_ortho_turn_on);
+                } else {
+                    localOrthoLayer.setVisible(true);
+                    orthoButton.setText(R.string.button_ortho_turn_off);
+                }
+            }
+        });
+    }
+
+    @Override
+    public boolean onCreateOptionsMenu(Menu menu) {
+        // Inflate the menu; this adds items to the action bar if it is present.
+        getMenuInflater().inflate(R.menu.menu_main, menu);
+
+        mWaterMenuItem = menu.getItem(1);
+        mSewerMenuItem = menu.getItem(2);
+        if (ISWATERLAYER != null) {
+            if (ISWATERLAYER) {
+                mWaterMenuItem.setChecked(true);
+            } else {
+                mSewerMenuItem.setChecked(true);
+            }
+        } else {
+            mWaterMenuItem.setChecked(true);
+        }
+        return true;
+    }
+
+    @Override
+    public boolean onOptionsItemSelected(MenuItem item) {
+
+        switch (item.getItemId()) {
+            case R.id.Water_Layer:
+                localWaterLayer.setVisible(true);
+                localSewerLayer.setVisible(false);
+                mWaterMenuItem.setChecked(true);
+                return true;
+            case R.id.Sewer_layer:
+                localSewerLayer.setVisible(true);
+                localWaterLayer.setVisible(false);
+                mSewerMenuItem.setChecked(true);
+                return true;
+            case R.id.gps_btn:
+                toggleGPS();
+                return true;
+            default:
+                return super.onOptionsItemSelected(item);
+        }
+    }
+
+    @Override
+    public void onSaveInstanceState(Bundle savedInstanceState) {
+
+        // Call superclass
+        super.onSaveInstanceState(savedInstanceState);
+
+        //Save Extent
+        LASTSTATE = mMapView.retainState();
+        ISWATERLAYER = localWaterLayer.isVisible();
+
+        // save ortho layer visibility
+        ISORTHOON = localOrthoLayer.isVisible();
+
+    }
+
+    @Override
+    public void onPause() {
+        super.onPause();
+        mMapView.pause();
+
+    }
+
+    @Override
+    public void onResume() {
+        super.onResume();
+        mMapView.unpause();
+
+        // On startup, check version on server
+        checkVersion();
+    }
+
+    /**
+     *  Fired from checkVersion
+     *      - Compare the server to local version and prompt upgrade if required
+     * @param serverVersion - server version
+     */
+    public void onTaskCompleted(String serverVersion) {
+
+        String localVersion = (Integer.toString(BuildConfig.VERSION_CODE) + "." + BuildConfig.VERSION_NAME);
+        Integer integerComparison = versionCompare(serverVersion, localVersion);
+
+        // if the versions don't match, prompt for dialog update
+        if ( integerComparison != 0) {
+
+            android.support.v4.app.FragmentTransaction transaction = getSupportFragmentManager().beginTransaction();
+            android.support.v4.app.Fragment prev = getSupportFragmentManager().findFragmentByTag("UpdateDialogFragment");
+
+            if (prev != null) {
+                DialogFragment df = (DialogFragment) prev;
+                df.dismiss();
+                transaction.remove(prev);
+            }
+
+            transaction.addToBackStack(null);
+            DialogFragment dialog = new UpdateDialogFragment();
+            dialog.show(getSupportFragmentManager(), "UpdateDialogFragment");
+        }
+    }
+
+    @Override
+    public void onDialogPositiveClick(DialogFragment dialog) {
+
+        UpdateApp update = new UpdateApp();
+        update.setContext(getApplicationContext());
+        update.execute(getResources().getString(R.string.basemap_server));
+    }
+
+    @Override
+    public void onDialogNegativeClick(DialogFragment dialog) {
+        Dialog dialogView = dialog.getDialog();
+        dialogView.cancel();
+    }
+
+    /**
+     * Create the Map View from current local files
+     *  - Sets the map touch listener
+     *  - sets the GPS listener
+     */
+    private void createMapView() {
+
         // create the mapview
         mMapView = (MapView) findViewById(R.id.map);
 
@@ -151,100 +294,11 @@ public class MainActivity extends ActionBarActivity implements OnTaskCompleted, 
                 }
             });
         }
-
-        // hook into ortho Toggle button
-        final Button orthoButton = (Button) findViewById(R.id.ortho_button);
-        orthoButton.setOnClickListener( new View.OnClickListener() {
-            @Override
-            public void onClick(View v) {
-                Button orthoButton = (Button)findViewById(R.id.ortho_button);
-                if (localOrthoLayer.isVisible()){
-                    localOrthoLayer.setVisible(false);
-                    orthoButton.setText(R.string.button_ortho_turn_on);
-                } else {
-                    localOrthoLayer.setVisible(true);
-                    orthoButton.setText(R.string.button_ortho_turn_off);
-                }
-            }
-        });
     }
 
-    @Override
-    public boolean onCreateOptionsMenu(Menu menu) {
-        // Inflate the menu; this adds items to the action bar if it is present.
-        getMenuInflater().inflate(R.menu.menu_main, menu);
-
-        mWaterMenuItem = menu.getItem(1);
-        mSewerMenuItem = menu.getItem(2);
-        if (ISWATERLAYER != null) {
-            if (ISWATERLAYER) {
-                mWaterMenuItem.setChecked(true);
-            } else {
-                mSewerMenuItem.setChecked(true);
-            }
-        } else {
-            mWaterMenuItem.setChecked(true);
-        }
-        return true;
-    }
-
-    @Override
-    public boolean onOptionsItemSelected(MenuItem item) {
-        // Handle action bar item clicks here. The action bar will
-        // automatically handle clicks on the Home/Up button, so long
-        // as you specify a parent activity in AndroidManifest.xml.
-
-
-        switch (item.getItemId()) {
-            case R.id.Water_Layer:
-                localWaterLayer.setVisible(true);
-                localSewerLayer.setVisible(false);
-                mWaterMenuItem.setChecked(true);
-                return true;
-            case R.id.Sewer_layer:
-                localSewerLayer.setVisible(true);
-                localWaterLayer.setVisible(false);
-                mSewerMenuItem.setChecked(true);
-                return true;
-            case R.id.gps_btn:
-                toggleGPS();
-                return true;
-            default:
-                return super.onOptionsItemSelected(item);
-        }
-    }
-
-    @Override
-    public void onSaveInstanceState(Bundle savedInstanceState) {
-
-        // Call superclass
-        super.onSaveInstanceState(savedInstanceState);
-
-        //Save Extent
-        LASTSTATE = mMapView.retainState();
-        ISWATERLAYER = localWaterLayer.isVisible();
-
-        // save ortho layer visibility
-        ISORTHOON = localOrthoLayer.isVisible();
-
-    }
-
-    @Override
-    public void onPause() {
-        super.onPause();
-        mMapView.pause();
-
-    }
-
-    @Override
-    public void onResume() {
-        super.onResume();
-        mMapView.unpause();
-
-        // On startup, check version on server
-        checkVersion();
-    }
-
+    /**
+     * Enable or Disable the GPS
+     */
     private void toggleGPS() {
         if (lDisplayManager == null) {
             return;
@@ -259,6 +313,10 @@ public class MainActivity extends ActionBarActivity implements OnTaskCompleted, 
         }
     }
 
+    /**
+     * Zoom in on user's current location
+     * @return - the estimated area of where the user is located
+     */
     private Envelope zoomEnvelope() {
         if (mMapView.getLocationDisplayManager().getLocation() != null) {
             double locy = mMapView.getLocationDisplayManager().getLocation().getLatitude();
@@ -281,7 +339,9 @@ public class MainActivity extends ActionBarActivity implements OnTaskCompleted, 
         return null;
     }
 
-    // check connection to NUD Wifi, then check version
+    /**
+     *  Check connection to NUD Wifi, T0hen check version
+     */
     private void checkVersion() {
 
         // Check if connected to NUD wifi
@@ -300,46 +360,13 @@ public class MainActivity extends ActionBarActivity implements OnTaskCompleted, 
         }
     }
 
-    public void onTaskCompleted(String args) {
-
-        String localVersion = (Integer.toString(BuildConfig.VERSION_CODE) + "." + BuildConfig.VERSION_NAME);
-        Integer integerComparison = versionCompare(args, localVersion);
-
-        // if the versions don't match, prompt for dialog update
-        if ( integerComparison != 0) {
-
-            android.support.v4.app.FragmentTransaction transaction = getSupportFragmentManager().beginTransaction();
-            android.support.v4.app.Fragment prev = getSupportFragmentManager().findFragmentByTag("UpdateDialogFragment");
-
-            if (prev != null) {
-                DialogFragment df = (DialogFragment) prev;
-                df.dismiss();
-                transaction.remove(prev);
-            }
-
-            transaction.addToBackStack(null);
-
-            DialogFragment dialog = new UpdateDialogFragment();
-            dialog.show(getSupportFragmentManager(), "UpdateDialogFragment");
-        }
-    }
-
-    @Override
-    public void onDialogPositiveClick(DialogFragment dialog) {
-
-        UpdateApp update = new UpdateApp();
-        update.setContext(getApplicationContext());
-        update.execute(getResources().getString(R.string.basemap_server));
-    }
-
-    @Override
-    public void onDialogNegativeClick(DialogFragment dialog) {
-        Dialog dialogView = dialog.getDialog();
-        dialogView.cancel();
-    }
-
-    private Integer versionCompare(String str1, String str2)
-    {
+    /**
+     *  Compares the string integers if they are equivalent
+     * @param str1 - first String Integer
+     * @param str2 - second String Integer
+     * @return 0 if the Integers are equivalent
+     */
+    private Integer versionCompare(String str1, String str2) {
         String[] vals1 = str1.split("\\.");
         String[] vals2 = str2.split("\\.");
         int i = 0;

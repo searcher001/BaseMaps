@@ -22,12 +22,10 @@ public class CheckVersionTask extends AsyncTask<String, String, String> {
         String versionText;
         HttpURLConnection con;
         try {
+
             URL u = new URL(uri[0]);
-
             con = (HttpURLConnection) u.openConnection();
-
             InputStream in;
-
             try {
                 in = con.getInputStream();
             } catch (Exception ex) {
@@ -38,7 +36,6 @@ public class CheckVersionTask extends AsyncTask<String, String, String> {
             String line;
 
             BufferedReader reader = new BufferedReader(new InputStreamReader(in));
-
             while ((line = reader.readLine()) != null) {
                 sb.append(line + " ");
             }

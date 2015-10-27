@@ -34,10 +34,12 @@ public class UpdateApp extends AsyncTask<String, Void, Void> {
 
             Log.i("File" , "name of file is:" + temp);
 
+            // Grab file FD
             File file = new File(temp);
 
             Log.i("File", "created file");
 
+            // Delete old file
             if (file.exists()) {
                 Log.i("File", "File does exist!");
                 file.delete();

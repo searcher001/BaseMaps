@@ -1,21 +1,29 @@
 package net.nud.basemaps;
 
 import android.app.Dialog;
+import android.app.DownloadManager;
+import android.content.BroadcastReceiver;
+import android.content.Context;
+import android.content.Intent;
+import android.content.IntentFilter;
 import android.graphics.Color;
 import android.location.Location;
 import android.location.LocationListener;
+import android.net.Uri;
 import android.net.wifi.WifiInfo;
 import android.net.wifi.WifiManager;
 import android.os.Environment;
 import android.support.v4.app.DialogFragment;
 import android.support.v7.app.ActionBarActivity;
 import android.os.Bundle;
+import android.util.Base64;
 import android.util.Log;
 import android.view.Menu;
 import android.view.MenuItem;
 import android.view.View;
 import android.widget.Button;
 import android.widget.EditText;
+import android.widget.Toast;
 
 import com.esri.android.map.LocationDisplayManager;
 import com.esri.android.map.MapView;
@@ -30,7 +38,7 @@ import com.esri.core.geometry.Unit;
 import java.io.File;
 
 
-public class MainActivity extends ActionBarActivity implements OnTaskCompleted, UpdateDialogFragment.UpdateDialogListener {
+public class MainActivity extends ActionBarActivity implements OnTaskCompleted, UpdateDialogFragment.UpdateDialogListener, LoginDialogFragment.LoginDialogListener{
 
     // menu items
     private MenuItem mSewerMenuItem;
@@ -41,6 +49,15 @@ public class MainActivity extends ActionBarActivity implements OnTaskCompleted, 
     private ArcGISLocalTiledLayer localSewerLayer;
     private ArcGISLocalTiledLayer localOrthoLayer;
     private LocationDisplayManager lDisplayManager;
+    private BroadcastReceiver wifiReceiver;
+    private BroadcastReceiver downloadComplete;
+    private Button checkUpdateButton;
+    private String userName;
+    private String password;
+
+    private long waterDownloadID;
+    private long sewerDownloadID;
+    private long orthoDownloadID;
 
     private static String LASTSTATE;        // also contains the location manager
     private static Boolean ISWATERLAYER;
@@ -61,11 +78,11 @@ public class MainActivity extends ActionBarActivity implements OnTaskCompleted, 
 
         // hook into ortho Toggle button
         final Button orthoButton = (Button) findViewById(R.id.ortho_button);
-        orthoButton.setOnClickListener( new View.OnClickListener() {
+        orthoButton.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View v) {
-                Button orthoButton = (Button)findViewById(R.id.ortho_button);
-                if (localOrthoLayer.isVisible()){
+                Button orthoButton = (Button) findViewById(R.id.ortho_button);
+                if (localOrthoLayer.isVisible()) {
                     localOrthoLayer.setVisible(false);
                     orthoButton.setText(R.string.button_ortho_turn_on);
                 } else {
@@ -74,6 +91,71 @@ public class MainActivity extends ActionBarActivity implements OnTaskCompleted, 
                 }
             }
         });
+
+
+        // Hook Update Button
+        checkUpdateButton = (Button)findViewById(R.id.update_button);
+        checkUpdateButton.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                showLoginDialog();
+            }
+        });
+
+        // Register wifi receiver to toggle update button
+        wifiReceiver = new BroadcastReceiver() {
+            @Override
+            public void onReceive(Context context, Intent intent) {
+                if (checkConnectedNUD()) {
+                    checkUpdateButton.setVisibility(View.VISIBLE);
+                } else {
+                    checkUpdateButton.setVisibility(View.GONE);
+                }
+            }
+        };
+
+        waterDownloadID = sewerDownloadID = orthoDownloadID = -1;
+
+        // register download complete register
+        downloadComplete = new BroadcastReceiver() {
+            @Override
+            public void onReceive(Context context, Intent intent) {
+
+                long downloadID = intent.getLongExtra(DownloadManager.EXTRA_DOWNLOAD_ID, -1);
+                // local common directory
+                String localDataDir = context.getResources().getString(R.string.local_data) + File.separator + context.getResources().getString(R.string.common_files);
+
+                // Create the path to the local TPK
+                String waterPath = Environment.getExternalStorageDirectory() + File.separator + localDataDir + File.separator + context.getResources().getString(R.string.local_water);
+                String sewerPath = Environment.getExternalStorageDirectory() + File.separator + localDataDir + File.separator + context.getResources().getString(R.string.local_sewer);
+                String orthoPath = Environment.getExternalStorageDirectory() + File.separator + localDataDir + File.separator + context.getResources().getString(R.string.ortho_photo);
+
+                if (downloadID == waterDownloadID){
+                    Log.i("DOWNLOAD", "In water file swap");
+                    File oldWaterTPK = new File(waterPath);
+                    File newWaterTPK = new File(waterPath + getResources().getString(R.string.temp_file));
+                    oldWaterTPK.delete();
+                    newWaterTPK.renameTo(new File(waterPath));
+                }
+
+                if (downloadID == sewerDownloadID) {
+                    Log.i("DOWNLOAD", "In sewer file swap");
+                    File oldSewerTPK = new File(sewerPath);
+                    File newSewerTPK = new File(sewerPath + getResources().getString(R.string.temp_file));
+                    oldSewerTPK.delete();
+                    newSewerTPK.renameTo(new File(sewerPath));
+                }
+
+                if (downloadID == orthoDownloadID) {
+                    Log.i("DOWNLOAD", "In ortho file swap");
+                    File oldOrthoTPK = new File(orthoPath);
+                    File newOrthoTPK = new File(orthoPath + getResources().getString(R.string.temp_file));
+                    oldOrthoTPK.delete();
+                    newOrthoTPK.renameTo(new File(orthoPath));
+                }
+            }
+        };
+
     }
 
     @Override
@@ -146,6 +228,13 @@ public class MainActivity extends ActionBarActivity implements OnTaskCompleted, 
 
         // On startup, check version on server
         checkVersion();
+
+        // Register the WIFI receiver for check for updates button
+        registerReceiver(wifiReceiver, new IntentFilter(WifiManager.NETWORK_STATE_CHANGED_ACTION));
+
+        // register the download complete to the download manager
+        registerReceiver(downloadComplete, new IntentFilter(DownloadManager.ACTION_DOWNLOAD_COMPLETE));
+
     }
 
     /**
@@ -176,18 +265,131 @@ public class MainActivity extends ActionBarActivity implements OnTaskCompleted, 
         }
     }
 
+
+    /**
+     *  Fired from checkTPK
+     *      - If Update is available, prompt user to download new TPK
+     * @param updateWater - True if water TPK needs update
+     * @param updateSewer - True of Sewer TPK needs update
+     * @param updateOrtho - True if Ortho TPK needs update
+    */
+    public void onTaskCompleted(Boolean connected, Boolean updateWater, Boolean updateSewer, Boolean updateOrtho) {
+
+        Log.i("UPDATE", "Connected is: " + connected);
+
+
+        if (connected){
+            if (updateWater || updateSewer || updateOrtho) {
+                Toast.makeText(this, "Downloading Map Updates", Toast.LENGTH_SHORT).show();
+                try {
+
+                    String userpass = "NUD\\" + userName + ":" + password;
+                    String basicAuth = "basic " + Base64.encodeToString(userpass.getBytes(), Base64.DEFAULT);
+                    String localDataDir = this.getResources().getString(R.string.common_files);
+                    DownloadManager downloadManager = (DownloadManager) (getSystemService(Context.DOWNLOAD_SERVICE));
+
+                    // If Water needs update
+                    if (updateWater) {
+                        String url = getResources().getString(R.string.server_water_tpk);
+                        DownloadManager.Request request = new DownloadManager.Request(Uri.parse(url));
+                        request.setAllowedNetworkTypes(DownloadManager.Request.NETWORK_WIFI | DownloadManager.Request.NETWORK_MOBILE)
+                                .setAllowedOverRoaming(true)
+                                .setTitle(getResources().getString(R.string.local_water))
+                                .setDescription("Downloading via Basemaps...")
+                                .setNotificationVisibility(DownloadManager.Request.VISIBILITY_VISIBLE_NOTIFY_COMPLETED)
+                                .setDestinationInExternalPublicDir("NUDLocalData", localDataDir + File.separator + getResources().getString(R.string.local_water) + getResources().getString(R.string.temp_file))
+                                .addRequestHeader("Authorization", basicAuth)
+                                .setVisibleInDownloadsUi(true);
+                        waterDownloadID = downloadManager.enqueue(request);
+                        Log.i("DOWNLOAD", "water download ID is: " + waterDownloadID);
+                    }
+
+                    // if Sewer needs update
+                    if (updateSewer) {
+                        String url = getResources().getString(R.string.server_sewer_tpk);
+                        DownloadManager.Request request = new DownloadManager.Request(Uri.parse(url));
+                        request.setAllowedNetworkTypes(DownloadManager.Request.NETWORK_WIFI | DownloadManager.Request.NETWORK_MOBILE)
+                                .setAllowedOverRoaming(true)
+                                .setTitle(getResources().getString(R.string.local_sewer))
+                                .setDescription("Downloading via Basemaps...")
+                                .setNotificationVisibility(DownloadManager.Request.VISIBILITY_VISIBLE_NOTIFY_COMPLETED)
+                                .setDestinationInExternalPublicDir("NUDLocalData", localDataDir + File.separator + getResources().getString(R.string.local_sewer) + getResources().getString(R.string.temp_file))
+                                .addRequestHeader("Authorization", basicAuth);
+                        sewerDownloadID = downloadManager.enqueue(request);
+                        Log.i("DOWNLOAD", "sewer download ID is: " + sewerDownloadID);
+                    }
+
+                    // if Ortho needs update
+                    if (updateOrtho) {
+                        String url = getResources().getString(R.string.server_ortho_tpk);
+                        DownloadManager.Request request = new DownloadManager.Request(Uri.parse(url));
+                        request.setAllowedNetworkTypes(DownloadManager.Request.NETWORK_WIFI | DownloadManager.Request.NETWORK_MOBILE)
+                                .setAllowedOverRoaming(true)
+                                .setTitle(getResources().getString(R.string.ortho_photo))
+                                .setDescription("Downloading via Basemaps...")
+                                .setNotificationVisibility(DownloadManager.Request.VISIBILITY_VISIBLE_NOTIFY_COMPLETED)
+                                .setDestinationInExternalPublicDir("NUDLocalData", localDataDir + File.separator + getResources().getString(R.string.ortho_photo) + getResources().getString(R.string.temp_file))
+                                .addRequestHeader("Authorization", basicAuth);
+                        orthoDownloadID = downloadManager.enqueue(request);
+                        Log.i("DOWNLOAD", "ortho download ID is: " + orthoDownloadID);
+                    }
+
+                } catch (Exception ex) {
+                    Log.i("EXCEPTION", "EXCEPTION CAUSED BY: " + ex.getMessage());
+                }
+            }
+            else {
+                Toast.makeText(this, "No map updates at this time", Toast.LENGTH_SHORT).show();
+            }
+        }
+        else {
+            Toast.makeText(this, "Could Not Authenticate User", Toast.LENGTH_SHORT).show();
+        }
+    }
+
     @Override
     public void onDialogPositiveClick(DialogFragment dialog) {
 
         UpdateApp update = new UpdateApp();
         update.setContext(getApplicationContext());
-        update.execute(getResources().getString(R.string.basemap_server));
+            update.execute(getResources().getString(R.string.basemap_server));
     }
 
     @Override
     public void onDialogNegativeClick(DialogFragment dialog) {
         Dialog dialogView = dialog.getDialog();
         dialogView.cancel();
+    }
+
+    @Override
+    public void onLoginPositiveClick(DialogFragment dialog) {
+
+        Dialog dialogView = dialog.getDialog();
+
+        EditText user = (EditText) dialogView.findViewById(R.id.username);
+        EditText pw = (EditText) dialogView.findViewById(R.id.password);
+        userName = user.getText().toString();
+        password = pw.getText().toString();
+
+        if (checkConnectedNUD()) {
+            CheckTPKTask checkTPKTask = new CheckTPKTask(this, userName, password, this);
+            checkTPKTask.execute();
+        }
+    }
+
+    @Override
+    public void onLoginNegativeClick(DialogFragment dialog) {
+        Dialog dialogView = dialog.getDialog();
+        dialogView.cancel();
+    }
+
+    /**
+     * Show the Login Dialog prompting user to log in
+     *  - Will fire asynchronous call to sync valves
+    */
+    private void showLoginDialog() {
+        DialogFragment dialog = new LoginDialogFragment();
+        dialog.show(getSupportFragmentManager(), "LoginDialogFragment");
     }
 
     /**
@@ -340,23 +542,15 @@ public class MainActivity extends ActionBarActivity implements OnTaskCompleted, 
     }
 
     /**
-     *  Check connection to NUD Wifi, T0hen check version
+     *  Check connection to NUD Wifi, Then check version
      */
     private void checkVersion() {
 
-        // Check if connected to NUD wifi
-        WifiManager wifiManager = (WifiManager) getSystemService(WIFI_SERVICE);
-        WifiInfo wifiInfo = wifiManager.getConnectionInfo();
-
-        Boolean testWifi = wifiInfo.getSSID().compareTo("\"" + getString(R.string.nud_wifi) +"\"") == 0;
-        Boolean testWifi5G = wifiInfo.getSSID().compareTo("\"" + getString(R.string.nud_wifi_5g) +"\"") == 0;
-
         // if connected to NUD Wifi, check server version
-        if (testWifi || testWifi5G)
+        if (checkConnectedNUD())
         {
             CheckVersionTask checkVersion = new CheckVersionTask(this);
             checkVersion.execute(getResources().getString(R.string.version_file));
-
         }
     }
 
@@ -387,6 +581,21 @@ public class MainActivity extends ActionBarActivity implements OnTaskCompleted, 
         {
             return Integer.signum(vals1.length - vals2.length);
         }
+    }
+
+    /**
+     *  Check to see if Connected to NUD wifi
+     * @return - true if connected to NUD wifi
+     */
+    private Boolean checkConnectedNUD() {
+        WifiManager wifiManager = (WifiManager)getSystemService(Context.WIFI_SERVICE);
+        WifiInfo wifi = wifiManager.getConnectionInfo();
+        if (wifi != null) {
+            String connection = wifi.getSSID().replace("\"", "");
+
+            return connection.equalsIgnoreCase(getString(R.string.nud_wifi)) || connection.equalsIgnoreCase(getString(R.string.nud_wifi_5g));
+        }
+        return false;
     }
 
 }

@@ -25,7 +25,20 @@
 
     <string name="version_file">http://vswhweb/AndroidApps/basemap.ver</string>
     <string name="basemap_server">http://vswhweb/AndroidApps/basemap.apk</string>
+    <string name="server_water_tpk">https://vswhweb.nud.net/AndroidApps/NudLocalData/MapBookWater.tpk</string>
+    <string name="server_sewer_tpk">https://vswhweb.nud.net/AndroidApps/NudLocalData/MapBookSewer.tpk</string>
+    <string name="server_ortho_tpk">https://vswhweb.nud.net/AndroidApps/NudLocalData/OrthoPhoto.tpk</string>
+
     <string name="update">Update</string>
     <string name="cancel">Cancel</string>
     <string name="basemap_local">basemap.apk</string>
+
+    <string name="username">User Name</string>
+    <string name="password">Password</string>
+    <string name="signin">Sign in</string>
+
+    <string name="temp_file">TEMP</string>
+
+    <string name="update_btn_txt">Check for updates</string>
+
 </resources>
